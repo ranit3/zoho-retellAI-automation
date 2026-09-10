@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Zoho Call System</title>
+  <style>
+    :root { color-scheme: light; font-family: "Segoe UI", sans-serif; }
+    body { margin: 0; min-height: 100vh; background: #eef3f1; color: #17352f; }
+    main { width: min(1080px, 92vw); margin: 0 auto; padding: 42px 0; }
+    header { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-bottom: 28px; }
+    h1 { margin: 0 0 8px; font-size: 28px; }
+    p { margin: 0; color: #60756f; }
+    .panel { background: #fff; border: 1px solid #d4e1dc; border-radius: 16px; box-shadow: 0 18px 50px #17352f18; }
+    .controls { width: min(360px, 100%); }
+    .status { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-weight: 600; }
+    .dot { width: 12px; height: 12px; border-radius: 50%; background: #a1b0ac; }
+    .running .dot { background: #1b9a68; box-shadow: 0 0 0 5px #1b9a6820; }
+    button { width: 100%; padding: 14px; border: 0; border-radius: 9px; background: #176b52; color: white; font-size: 16px; font-weight: 700; cursor: pointer; }
+    button.stop { background: #8a3f3f; }
+    button:disabled { opacity: .55; cursor: wait; }
+    small { display: block; margin-top: 12px; color: #80908c; }
+    .grid { display: grid; grid-template-columns: 1fr; gap: 18px; }
+    .panel h2 { margin: 0; padding: 20px 22px 14px; font-size: 17px; }
+    .lead-list, .log-list { margin: 0; padding: 0 22px 20px; list-style: none; }
+    .lead-list { max-height: 430px; overflow: auto; }
+    .lead { display: flex; justify-content: space-between; align-items: center; gap: 18px; padding: 14px 0; border-top: 1px solid #e4ece8; }
+    .lead-name { font-weight: 700; }
+    .lead-meta { margin-top: 4px; color: #80908c; font-size: 13px; }
+    .badge { flex: 0 0 auto; padding: 5px 9px; border-radius: 999px; background: #e7eeeb; color: #526760; font-size: 12px; font-weight: 700; }
+    .badge.in-progress, .badge.queued, .badge.needs-call, .badge.call-pending, .badge.automation-pending { background: #fff0c9; color: #87630d; }
+    .badge.call-completed { background: #dff4e9; color: #197047; }
+    .badge.call-in-progress { background: #fff0c9; color: #87630d; }
+    .badge.completed { background: #dff4e9; color: #197047; }
+    .badge.failed { background: #f9e0e0; color: #9b3c3c; }
+    .badge.not-needed { background: #edf0ef; color: #697b75; }
+    .terminal { background: #101715; border-color: #263932; color: #d8ebe3; }
+    .terminal h2 { color: #d8ebe3; border-bottom: 1px solid #263932; }
+    .terminal .log-list { max-height: 300px; }
+    .terminal .log { border-top-color: #263932; }
+    .terminal .log-time { color: #78958a; }
+    .log { padding: 10px 0; border-top: 1px solid #e4ece8; font-size: 13px; }
+    .log-time { margin-right: 8px; color: #9aa9a4; font-variant-numeric: tabular-nums; }
+    .log.error { color: #9b3c3c; }
+    .log.warning { color: #87630d; }
+    .empty { padding: 10px 0; color: #80908c; font-size: 14px; }
+    @media (max-width: 720px) { header { display: block; } .controls { margin-top: 24px; width: auto; } }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <div><h1>Zoho Call System</h1><p>The Automation checkbox controls which leads enter the call queue.</p></div>
+      <section class="controls">
+        <div id="status" class="status"><span class="dot"></span><span id="label">Checking status...</span></div>
+        <button id="toggle" type="button" disabled>Loading...</button>
+      </section>
+    </header>
+    <div class="grid">
+      <section class="panel"><h2>All leads and automation status</h2><ul id="leads" class="lead-list"><li class="empty">Waiting for leads...</li></ul></section>
+      <section class="panel terminal"><h2>Live activity terminal</h2><ul id="logs" class="log-list"><li class="empty">Waiting for activity...</li></ul></section>
+    </div>
+    <small>Updates are live. Keep this window open while the system is running.</small>
+  </main>
+  <script>
+    const status = document.querySelector('#status');
+    const label = document.querySelector('#label');
+    const button = document.querySelector('#toggle');
+    const leadsElement = document.querySelector('#leads');
+    const logsElement = document.querySelector('#logs');
+    let running = false;
+    let leads = [];
+    let logs = [];
+
+    function render() {
+      status.classList.toggle('running', running);
+      label.textContent = running ? 'System is live' : 'System is stopped';
+      button.textContent = running ? 'Stop system' : 'Start system';
+      button.classList.toggle('stop', running);
+      button.disabled = false;
+    }
+
+    function statusClass(status) {
+      return status.toLowerCase().replaceAll(' ', '-');
+    }
+
+    function renderLeads(leads) {
+      leadsElement.innerHTML = leads.length ? leads.map(lead => `
+        <li class="lead"><div><div class="lead-name">${lead.name}</div><div class="lead-meta">${lead.needsCall ? 'Call needed' : 'No call needed'} &middot; ${lead.phone} &middot; ${lead.id}</div></div>
+        <span class="badge ${statusClass(lead.status)}">${lead.status}</span></li>`).join('') : '<li class="empty">Waiting for leads...</li>';
+    }
+
+    function renderLogs(logs) {
+      logsElement.innerHTML = logs.length ? logs.map(log => {
+        const time = new Date(log.timestamp).toLocaleTimeString();
+        return `<li class="log ${log.level}"><span class="log-time">${time}</span>${log.message}</li>`;
+      }).join('') : '<li class="empty">Waiting for activity...</li>';
+    }
+
+    function applyEvent(event) {
+      if (event.type === 'snapshot') {
+        running = event.running;
+        render();
+        leads = event.leads;
+        logs = event.logs;
+      } else if (event.type === 'lead') {
+        leads = [event.lead, ...leads.filter(lead => lead.id !== event.lead.id)].slice(0, 5000);
+      } else if (event.type === 'log') {
+        logs = [event, ...logs].slice(0, 100);
+      }
+      renderLeads(leads);
+      renderLogs(logs);
+    }
+
+    button.addEventListener('click', async () => {
+      button.disabled = true;
+      const response = await fetch(`/api/control/${running ? 'stop' : 'start'}`, { method: 'POST' });
+      const result = await response.json();
+      if (!response.ok) {
+        label.textContent = 'Zoho setup failed';
+        button.disabled = false;
+        return;
+      }
+      running = result.running;
+      render();
+    });
+
+    const stream = new EventSource('/api/activity/stream');
+    stream.onmessage = event => applyEvent(JSON.parse(event.data));
+    stream.onerror = () => { label.textContent = 'Reconnecting...'; button.disabled = true; };
+  </script>
+</body>
+</html>
