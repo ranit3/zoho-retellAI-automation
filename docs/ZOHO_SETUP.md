@@ -114,7 +114,7 @@ The check reads field metadata and a sample Lead. It does not modify Leads.
 4. Press **Start system**.
 5. Watch the lead move through the dashboard.
 
-In the current demo mode, the expected flow is:
+The expected workflow is:
 
 ```text
 Automation checked
@@ -123,4 +123,4 @@ Automation checked
 -> Call Completed
 ```
 
-The demo sends a sample transcript to the local webhook after 10 seconds. It does not place a real call.
+The Retell voice agent conducts the call, the transcript is processed by the agentic AI analysis pipeline, and the resulting motivation, intent, outcome, next action, and dates are written back to Zoho.

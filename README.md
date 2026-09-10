@@ -1,14 +1,8 @@
 # Zoho Retell AI Automation
 
-A local Node.js integration that watches Zoho CRM Leads, uses an `Automation` checkbox as the call trigger, sends eligible leads through a Retell call workflow, analyzes the conversation with an AI provider, and writes the result back to Zoho CRM.
+A Node.js integration that automatically fetches eligible leads from Zoho CRM, uses an `Automation` checkbox as the call trigger, connects them to a Retell AI voice agent, and processes each conversation with an agentic AI analysis pipeline.
 
-The project includes a small browser control app so an operator can start and stop polling, see every lead and its current workflow state, and watch live activity logs.
-
-## Current Status
-
-The repository currently runs in **demo call mode**. When a lead is selected, the integration simulates the call and sends a realistic sample transcript to the local Retell webhook after 10 seconds. This exercises the Zoho update and AI analysis pipeline without placing a real phone call.
-
-The call boundary is isolated in `services/zohoPolling.js`, so a real Retell outbound-call implementation can replace the demo block later.
+The system automates lead follow-up from intake to CRM update. It provides a browser control app where operators can start and stop processing, view every lead and its workflow state, and monitor live activity logs.
 
 ## How It Works
 
@@ -16,33 +10,33 @@ The call boundary is isolated in `services/zohoPolling.js`, so a real Retell out
 Zoho Lead with Automation checked
         |
         v
-Zoho polling service finds the lead
+Integration fetches the eligible lead
         |
         v
-Lead Status -> Call In Progress
+Retell AI voice agent conducts the call
         |
         v
-Demo call or Retell outbound call
+Agentic AI processes the conversation transcript
         |
         v
-Retell webhook receives transcript
-        |
-        v
-AI analyzes the transcript
+Intent, motivation, outcome, next action, and dates are extracted
         |
         v
 Zoho Lead fields and Note are updated
         |
         v
-Lead Status -> Call Completed or Call Failed
+Lead Status and Call Status reflect the result
 ```
 
 Leads with `Automation` unchecked remain visible in the dashboard but are not called.
 
 ## Features
 
-- Polls all Zoho Leads every 10 seconds.
+- Fetches all Zoho Leads every 10 seconds.
 - Uses the `Automation` checkbox as the only call trigger.
+- Initiates Retell AI voice-agent calls for eligible leads.
+- Receives and processes call transcripts through agentic AI.
+- Extracts motivation, intent, qualification, outcome, required action, and follow-up dates.
 - Shows all fetched leads, including leads that do not need a call.
 - Masks phone numbers in the dashboard and activity logs.
 - Provides live activity updates through Server-Sent Events.
@@ -56,7 +50,7 @@ Leads with `Automation` unchecked remain visible in the dashboard but are not ca
 - Node.js 18 or newer
 - A Zoho CRM account with Leads access
 - A Zoho OAuth Self Client
-- A Retell account if replacing demo mode with real calls
+- A Retell account and configured voice agent
 - An AI provider API key for transcript analysis
 
 ## Quick Start
@@ -154,8 +148,8 @@ The application reads Leads, updates Lead fields, creates transcript Notes, and 
 | `npm run check:zoho` | Verify Zoho authentication, fields, and Lead access |
 | `npm run check:integration` | Test the configured Zoho and AI integration without modifying a Lead |
 | `npm run test:ai` | Run the AI analysis test |
-| `npm run demo` | Run the local demo flow |
-| `npm run demo:zoho` | Run the Zoho demo flow |
+| `npm run demo` | Run the local development flow |
+| `npm run demo:zoho` | Run the Zoho integration development flow |
 
 ## HTTP Endpoints
 
@@ -192,7 +186,3 @@ start-zoho.bat                  Windows launcher
 - Rotate any credential that has appeared in a public repository, issue, log, screenshot, or chat.
 - Phone numbers are masked in the dashboard and activity logs, but Zoho and the call provider still receive the real value internally.
 - The local dashboard has no authentication. Run it on a trusted machine and do not expose port `3001` directly to the internet.
-
-## Development Notes
-
-The demo transcript is intentionally realistic enough to exercise qualification, interest, outcome, and next-action analysis. It is not a real outbound phone call. Replace the demo section in `services/zohoPolling.js` with the Retell outbound-call API when moving to production, and handle provider webhooks through `/api/webhooks/retell`.
