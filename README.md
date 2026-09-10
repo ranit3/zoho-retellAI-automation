@@ -1,19 +1,29 @@
 # Zoho Retell AI Automation
 
-A Node.js integration that automatically fetches eligible leads from Zoho CRM, uses an `Automation` checkbox as the call trigger, connects them to a Retell AI voice agent, and processes each conversation with an agentic AI analysis pipeline.
+An automated calling assistant for sales teams. It finds the Zoho leads marked for a call, has a Retell AI voice agent speak with them, and records the important results back in Zoho CRM.
 
-The system automates lead follow-up from intake to CRM update. It provides a browser control app where operators can start and stop processing, view every lead and its workflow state, and monitor live activity logs.
+## What Problem It Solves
+
+Sales teams often lose potential customers because new enquiries are not contacted quickly, every conversation is not documented, and follow-up actions are easy to miss. This system gives each selected lead a timely first conversation and turns that conversation into organized CRM data for the team.
+
+## Who Gets Called
+
+The Retell AI voice agent calls people already saved as **Leads in Zoho CRM**. These may be website enquiries, campaign responses, or other prospective customers who need an initial qualification or follow-up call. A lead is called only when the `Automation` checkbox is checked in Zoho.
+
+The calls are intended to understand the lead's needs, answer common questions, check their interest and suitability, identify their motivation or objections, and agree on the next step such as a meeting, email, callback, or stopping follow-up.
+
+The browser app lets an operator start and stop processing, view every lead and its current status, and monitor live activity logs.
 
 ## How It Works
 
 ```text
-Zoho Lead with Automation checked
+Selected Zoho lead with Automation checked
         |
         v
-Integration fetches the eligible lead
+The system finds the lead and starts a Retell AI call
         |
         v
-Retell AI voice agent conducts the call
+The voice agent speaks with the prospective customer
         |
         v
 Agentic AI processes the conversation transcript
