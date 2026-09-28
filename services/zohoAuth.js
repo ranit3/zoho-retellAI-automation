@@ -9,11 +9,12 @@ async function getAccessToken() {
     }
 
     try {
-        const response = await axios.post(`${process.env.ZOHO_ACCOUNTS_URL}/oauth/v2/token`, null, {
+        const accountsUrl = (process.env.ZOHO_ACCOUNTS_URL || 'https://accounts.zoho.in').trim();
+        const response = await axios.post(`${accountsUrl}/oauth/v2/token`, null, {
             params: {
-                refresh_token: process.env.ZOHO_REFRESH_TOKEN,
-                client_id: process.env.ZOHO_CLIENT_ID,
-                client_secret: process.env.ZOHO_CLIENT_SECRET,
+                refresh_token: (process.env.ZOHO_REFRESH_TOKEN || '').trim(),
+                client_id: (process.env.ZOHO_CLIENT_ID || '').trim(),
+                client_secret: (process.env.ZOHO_CLIENT_SECRET || '').trim(),
                 grant_type: 'refresh_token'
             }
         });

@@ -233,7 +233,8 @@ async function fetchAllLeads(zohoToken) {
     let page = 1;
 
     while (true) {
-        const response = await axios.get(`${process.env.ZOHO_API_DOMAIN}/crm/v3/Leads`, {
+        const apiDomain = (process.env.ZOHO_API_DOMAIN || 'https://www.zohoapis.in').trim();
+        const response = await axios.get(`${apiDomain}/crm/v3/Leads`, {
             params: {
                 sort_order: 'desc',
                 sort_by: 'Created_Time',

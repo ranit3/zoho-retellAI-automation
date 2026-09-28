@@ -30,7 +30,8 @@ async function updateLeadAnalysis(leadId, callStatus, analysis) {
     };
     if (fields.objection_reason) fieldValues[fields.objection_reason] = analysis.objection_reason;
 
-    await axios.put(`${process.env.ZOHO_API_DOMAIN}/crm/v3/Leads/${leadId}`, {
+    const apiDomain = (process.env.ZOHO_API_DOMAIN || 'https://www.zohoapis.in').trim();
+    await axios.put(`${apiDomain}/crm/v3/Leads/${leadId}`, {
         data: [fieldValues]
     }, {
         headers: {
@@ -42,6 +43,7 @@ async function updateLeadAnalysis(leadId, callStatus, analysis) {
 
 async function addCallNote(leadId, transcript, callStatus, analysis, callId) {
     const token = await getAccessToken();
+    const apiDomain = (process.env.ZOHO_API_DOMAIN || 'https://www.zohoapis.in').trim();
     const noteContent = [
         `Retell Call ID: ${callId || 'unknown'}`,
         `Call Status: ${callStatus}`,
@@ -53,7 +55,7 @@ async function addCallNote(leadId, transcript, callStatus, analysis, callId) {
         transcript
     ].join('\n');
 
-    await axios.post(`${process.env.ZOHO_API_DOMAIN}/crm/v3/Notes`, {
+    await axios.post(`${apiDomain}/crm/v3/Notes`, {
         data: [{
             Parent_Id: leadId,
             se_module: 'Leads',
@@ -70,8 +72,9 @@ async function addCallNote(leadId, transcript, callStatus, analysis, callId) {
 
 async function updateLeadStatus(leadId, status) {
     const token = await getAccessToken();
+    const apiDomain = (process.env.ZOHO_API_DOMAIN || 'https://www.zohoapis.in').trim();
     const statusField = process.env.ZOHO_FIELD_LEAD_STATUS || 'Lead_Status';
-    await axios.put(`${process.env.ZOHO_API_DOMAIN}/crm/v3/Leads/${leadId}`, {
+    await axios.put(`${apiDomain}/crm/v3/Leads/${leadId}`, {
         data: [{
             [statusField]: status
         }]
