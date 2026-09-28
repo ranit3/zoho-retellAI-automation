@@ -68,7 +68,23 @@ async function addCallNote(leadId, transcript, callStatus, analysis, callId) {
     });
 }
 
+async function updateLeadStatus(leadId, status) {
+    const token = await getAccessToken();
+    const statusField = process.env.ZOHO_FIELD_LEAD_STATUS || 'Lead_Status';
+    await axios.put(`${process.env.ZOHO_API_DOMAIN}/crm/v3/Leads/${leadId}`, {
+        data: [{
+            [statusField]: status
+        }]
+    }, {
+        headers: {
+            Authorization: `Zoho-oauthtoken ${token}`,
+            'Content-Type': 'application/json'
+        }
+    });
+}
+
 module.exports = {
     updateLeadAnalysis,
-    addCallNote
+    addCallNote,
+    updateLeadStatus
 };
