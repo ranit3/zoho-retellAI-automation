@@ -62,7 +62,8 @@ function formatE164(phone) {
 // Function to call Retell AI
 async function callRetellAI(lead) {
     const rawPhone = lead.Phone || lead.Mobile;
-    const name = `${lead.First_Name || ''} ${lead.Last_Name || ''}`.trim() || 'Customer';
+    const name = `${lead.First_Name || ''} ${lead.Last_Name || ''}`.trim() || 'there';
+    const company = (lead.Company || '').trim() || 'your company';
 
     try {
         if (!rawPhone) {
@@ -124,7 +125,8 @@ async function callRetellAI(lead) {
                     zoho_lead_id: lead.id
                 },
                 retell_llm_dynamic_variables: {
-                    customer_name: name
+                    customer_name: name,
+                    company_name: company
                 }
             },
             {
@@ -240,7 +242,7 @@ function isTriggerChecked(value) {
 async function fetchAllLeads(zohoToken) {
     const leads = [];
     const statusField = process.env.ZOHO_FIELD_LEAD_STATUS || 'Lead_Status';
-    const fields = `id,First_Name,Last_Name,Phone,Mobile,${TRIGGER_FIELD},${statusField}`;
+    const fields = `id,First_Name,Last_Name,Company,Phone,Mobile,${TRIGGER_FIELD},${statusField}`;
     let page = 1;
 
     while (true) {
