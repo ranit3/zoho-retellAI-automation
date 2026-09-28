@@ -77,7 +77,7 @@ async function callRetellAI(lead) {
 
         const phone = formatE164(rawPhone);
 
-        addLog(`Initiating call to ${name} (${maskPhone(phone)})...`);
+        addLog(`Initiating call to ${name} at ${company} (${maskPhone(phone)})...`);
         updateLead(lead.id, { name, phone: maskPhone(phone), status: 'In progress' });
         await updateLeadStatus(lead.id, IN_PROGRESS_VALUE);
 

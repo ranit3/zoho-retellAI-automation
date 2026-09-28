@@ -13,6 +13,10 @@ app.use(express.static(path.join(__dirname, 'public')));
 
 app.use('/api/webhooks/retell', retellRoutes);
 
+app.get('/api/version', (req, res) => {
+  res.json({ version: '1.0.4', features: ['customer_name', 'company_name'] });
+});
+
 app.get('/api/control/status', (req, res) => {
   res.json({ running: isPolling() });
 });
