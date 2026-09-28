@@ -40,10 +40,32 @@ function markLeadAsProcessed(leadId) {
     }
 }
 
+function clearProcessedLeads() {
+    try {
+        fs.writeFileSync(CALLED_LEADS_FILE, JSON.stringify([]));
+        addLog("Reset processed leads list.");
+        return true;
+    } catch (err) {
+        console.error("Error clearing called_leads.json:", err);
+        return false;
+    }
+}
+
 function formatE164(phone) {
     let cleaned = String(phone || '').trim().replace(/[^\d+]/g, '');
+    const defaultCountryCode = (process.env.DEFAULT_COUNTRY_CODE || '+91').trim();
+
     if (!cleaned.startsWith('+')) {
-        cleaned = `+${cleaned}`;
+        // Strip leading zeros if present
+        cleaned = cleaned.replace(/^0+/, '');
+
+        // If 10 digits (e.g. Indian/US mobile without country code), prepend default country code
+        if (cleaned.length === 10) {
+            const prefix = defaultCountryCode.startsWith('+') ? defaultCountryCode : `+${defaultCountryCode}`;
+            cleaned = `${prefix}${cleaned}`;
+        } else {
+            cleaned = `+${cleaned}`;
+        }
     }
     return cleaned;
 }
@@ -259,5 +281,6 @@ async function fetchAllLeads(zohoToken) {
 module.exports = {
     startPolling,
     stopPolling,
-    isPolling
+    isPolling,
+    clearProcessedLeads
 };

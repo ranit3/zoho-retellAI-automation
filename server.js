@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const retellRoutes = require('./routes/retell');
-const { startPolling, stopPolling, isPolling } = require('./services/zohoPolling');
+const { startPolling, stopPolling, isPolling, clearProcessedLeads } = require('./services/zohoPolling');
 const { events, getSnapshot } = require('./services/activityLog');
 
 const app = express();
@@ -41,6 +41,11 @@ app.post('/api/control/start', async (req, res) => {
 app.post('/api/control/stop', (req, res) => {
   stopPolling();
   res.json({ running: false });
+});
+
+app.post('/api/control/reset', (req, res) => {
+  clearProcessedLeads();
+  res.json({ success: true });
 });
 
 const server = app.listen(PORT, () => {
