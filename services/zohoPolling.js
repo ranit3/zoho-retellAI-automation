@@ -53,19 +53,8 @@ function clearProcessedLeads() {
 
 function formatE164(phone) {
     let cleaned = String(phone || '').trim().replace(/[^\d+]/g, '');
-    const defaultCountryCode = (process.env.DEFAULT_COUNTRY_CODE || '+91').trim();
-
     if (!cleaned.startsWith('+')) {
-        // Strip leading zeros if present
-        cleaned = cleaned.replace(/^0+/, '');
-
-        // If 10 digits (e.g. Indian/US mobile without country code), prepend default country code
-        if (cleaned.length === 10) {
-            const prefix = defaultCountryCode.startsWith('+') ? defaultCountryCode : `+${defaultCountryCode}`;
-            cleaned = `${prefix}${cleaned}`;
-        } else {
-            cleaned = `+${cleaned}`;
-        }
+        cleaned = `+${cleaned}`;
     }
     return cleaned;
 }
