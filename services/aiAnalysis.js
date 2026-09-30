@@ -1,7 +1,6 @@
 const axios = require('axios');
 
 const ALLOWED_VALUES = {
-    right_person: ['Yes', 'No'],
     interest_level: ['High', 'Medium', 'Low', 'None'],
     outcome: ['Meeting', 'Email', 'Callback', 'Not Interested', 'Wrong Person']
 };
@@ -25,7 +24,6 @@ function buildPrompt(transcript, callStatus) {
 Call status from the telephony provider: ${callStatus}
 
 Allowed values:
-- right_person: Yes or No
 - interest_level: High, Medium, Low, or None
 - outcome: Meeting, Email, Callback, Not Interested, or Wrong Person
 - objection_reason: Already have agency, No time, or Not priority; otherwise null
@@ -39,7 +37,6 @@ Rules:
 
 Return exactly this shape:
 {
-  "right_person": "Yes",
   "interest_level": "High",
   "outcome": "Meeting",
   "objection_reason": null,
@@ -68,7 +65,6 @@ function normalizeDate(value) {
 
 function applyBusinessRules(result, callStatus) {
     const normalized = {
-        right_person: normalizeChoice(result.right_person, ALLOWED_VALUES.right_person),
         interest_level: normalizeChoice(result.interest_level, ALLOWED_VALUES.interest_level),
         outcome: normalizeChoice(result.outcome, ALLOWED_VALUES.outcome),
         objection_reason: ['Already have agency', 'No time', 'Not priority'].includes(result.objection_reason)
@@ -78,9 +74,6 @@ function applyBusinessRules(result, callStatus) {
         next_action_date: normalizeDate(result.next_action_date)
     };
 
-    if (normalized.outcome === 'Wrong Person') {
-        normalized.right_person = 'No';
-    }
     if (normalized.outcome === 'Not Interested') {
         normalized.interest_level = 'None';
     }

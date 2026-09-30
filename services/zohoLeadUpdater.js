@@ -4,7 +4,6 @@ const { getAccessToken } = require('./zohoAuth');
 function getFieldMap() {
     return {
         call_status: process.env.ZOHO_FIELD_CALL_STATUS || 'Call_Status',
-        right_person: process.env.ZOHO_FIELD_RIGHT_PERSON || 'Right_Person',
         interest_level: process.env.ZOHO_FIELD_INTEREST_LEVEL || 'Interest_Level',
         outcome: process.env.ZOHO_FIELD_OUTCOME || 'Outcome',
         objection_reason: process.env.ZOHO_FIELD_OBJECTION_REASON || null,
@@ -19,7 +18,6 @@ async function updateLeadAnalysis(leadId, callStatus, analysis, transcript) {
     const fields = getFieldMap();
     const fieldValues = {
         [fields.call_status]: callStatus,
-        [fields.right_person]: analysis.right_person,
         [fields.interest_level]: analysis.interest_level,
         [fields.outcome]: analysis.outcome,
         [fields.call_summary]: analysis.call_summary,

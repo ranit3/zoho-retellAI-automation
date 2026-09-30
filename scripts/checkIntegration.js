@@ -17,12 +17,12 @@ function getHeaders(token) {
 
 function getConfiguredFields() {
     return {
-        Call_Status: process.env.ZOHO_FIELD_CALL_STATUS,
-        Right_Person: process.env.ZOHO_FIELD_RIGHT_PERSON,
-        Interest_Level: process.env.ZOHO_FIELD_INTEREST_LEVEL,
-        Outcome: process.env.ZOHO_FIELD_OUTCOME,
-        Call_Summary: process.env.ZOHO_FIELD_CALL_SUMMARY,
-        Next_Action_Date: process.env.ZOHO_FIELD_NEXT_ACTION_DATE,
+        Call_Status: process.env.ZOHO_FIELD_CALL_STATUS || 'Call_Status',
+        Interest_Level: process.env.ZOHO_FIELD_INTEREST_LEVEL || 'Interest_Level',
+        Outcome: process.env.ZOHO_FIELD_OUTCOME || 'Outcome',
+        Call_Summary: process.env.ZOHO_FIELD_CALL_SUMMARY || 'Call_Summary',
+        Next_Action_Date: process.env.ZOHO_FIELD_NEXT_ACTION_DATE || 'Next_Action_Date',
+        Call_Transcript: process.env.ZOHO_FIELD_CALL_TRANSCRIPT || 'Call_Transcript',
         Objection_Reason: process.env.ZOHO_FIELD_OBJECTION_REASON || '(not configured; optional)'
     };
 }
@@ -60,18 +60,18 @@ async function run() {
     console.log(`[3/4] Zoho Leads read: OK (sample lead ${lead.id}; no lead modified)`);
 
     const analysis = await analyzeTranscript(sampleTranscript.trim(), 'Connected');
-    console.log('[4/4] OpenRouter analysis: OK');
+    console.log('[4/4] LLM analysis: OK');
     console.log('\nGenerated analysis that would be sent to Zoho:');
     console.log(JSON.stringify({
         [configuredFields.Call_Status]: 'Connected',
-        [configuredFields.Right_Person]: analysis.right_person,
         [configuredFields.Interest_Level]: analysis.interest_level,
         [configuredFields.Outcome]: analysis.outcome,
         ...(process.env.ZOHO_FIELD_OBJECTION_REASON
             ? { [process.env.ZOHO_FIELD_OBJECTION_REASON]: analysis.objection_reason }
             : {}),
         [configuredFields.Call_Summary]: analysis.call_summary,
-        [configuredFields.Next_Action_Date]: analysis.next_action_date
+        [configuredFields.Next_Action_Date]: analysis.next_action_date,
+        [configuredFields.Call_Transcript]: sampleTranscript.trim()
     }, null, 2));
     console.log('\nIntegration check complete. Zoho was not modified.');
 }
