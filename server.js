@@ -2,7 +2,7 @@ require('dotenv').config();
 const express = require('express');
 const path = require('path');
 const retellRoutes = require('./routes/retell');
-const { startPolling, stopPolling, isPolling, clearProcessedLeads } = require('./services/zohoPolling');
+const { startPolling, stopPolling, pauseAllActiveCalls, isPolling, clearProcessedLeads } = require('./services/zohoPolling');
 const { events, getSnapshot } = require('./services/activityLog');
 
 const app = express();
@@ -14,7 +14,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/webhooks/retell', retellRoutes);
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '1.0.5', features: ['customer_name', 'company_name', 'call_transcript'] });
+  res.json({ version: '1.0.6', features: ['customer_name', 'company_name', 'call_transcript', 'pause_calls'] });
 });
 
 app.get('/api/control/status', (req, res) => {
@@ -42,9 +42,15 @@ app.post('/api/control/start', async (req, res) => {
   res.status(started ? 200 : 500).json({ running: isPolling(), started });
 });
 
-app.post('/api/control/stop', (req, res) => {
+app.post('/api/control/stop', async (req, res) => {
   stopPolling();
-  res.json({ running: false });
+  const pauseResult = await pauseAllActiveCalls();
+  res.json({ running: false, paused: pauseResult.count || 0 });
+});
+
+app.post('/api/control/pause', async (req, res) => {
+  const result = await pauseAllActiveCalls();
+  res.json({ running: isPolling(), paused: result.count || 0, success: result.success });
 });
 
 app.post('/api/control/reset', (req, res) => {

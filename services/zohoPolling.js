@@ -308,6 +308,68 @@ function stopPolling() {
     return true;
 }
 
+async function pauseAllActiveCalls() {
+    stopPolling();
+    try {
+        const token = await getAccessToken();
+        const apiDomain = (process.env.ZOHO_API_DOMAIN || 'https://www.zohoapis.in').trim();
+        const statusField = process.env.ZOHO_FIELD_LEAD_STATUS || 'Lead_Status';
+        const callStatusField = process.env.ZOHO_FIELD_CALL_STATUS || 'Call_Status';
+
+        let page = 1;
+        const leadsToPause = [];
+
+        while (true) {
+            const response = await axios.get(`${apiDomain}/crm/v3/Leads`, {
+                params: {
+                    per_page: 200,
+                    page,
+                    fields: `id,${TRIGGER_FIELD},${statusField},${callStatusField},First_Name,Last_Name,Phone,Mobile`
+                },
+                headers: { Authorization: `Zoho-oauthtoken ${token}` }
+            });
+            const records = response.data?.data || [];
+            for (const record of records) {
+                const isTrigger = isTriggerChecked(record[TRIGGER_FIELD]);
+                const isInProgress = record[statusField] === IN_PROGRESS_VALUE || record[callStatusField] === 'In Progress';
+                if (isTrigger || isInProgress) {
+                    leadsToPause.push({
+                        id: record.id,
+                        [statusField]: 'Call Paused',
+                        [TRIGGER_FIELD]: false
+                    });
+                    updateLead(record.id, {
+                        name: nameForLead(record),
+                        phone: maskPhone(record.Phone || record.Mobile),
+                        status: 'Call Paused',
+                        needsCall: false,
+                        triggerValue: false
+                    });
+                }
+            }
+            if (records.length < 200 || !response.data?.info?.more_records) break;
+            page++;
+        }
+
+        if (leadsToPause.length > 0) {
+            for (let i = 0; i < leadsToPause.length; i += 100) {
+                const chunk = leadsToPause.slice(i, i + 100);
+                await axios.put(`${apiDomain}/crm/v3/Leads`, { data: chunk }, {
+                    headers: { Authorization: `Zoho-oauthtoken ${token}` }
+                });
+            }
+            addLog(`Paused ${leadsToPause.length} active/queued call(s) in Zoho CRM.`);
+        } else {
+            addLog("No active or queued calls needed pausing.");
+        }
+
+        return { success: true, count: leadsToPause.length };
+    } catch (err) {
+        addLog(`Error pausing active calls: ${err.message}`, 'error');
+        return { success: false, error: err.message };
+    }
+}
+
 function isPolling() {
     return Boolean(pollingTimer);
 }
@@ -362,6 +424,7 @@ async function fetchAllLeads(zohoToken) {
 module.exports = {
     startPolling,
     stopPolling,
+    pauseAllActiveCalls,
     isPolling,
     clearProcessedLeads
 };
