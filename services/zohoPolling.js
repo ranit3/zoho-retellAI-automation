@@ -3,7 +3,7 @@ const fs = require('fs');
 const path = require('path');
 const { getAccessToken } = require('./zohoAuth');
 const { addLog, updateLead } = require('./activityLog');
-const { updateLeadStatus } = require('./zohoLeadUpdater');
+const { updateLeadStatus, consumeLeadTrigger, uncheckTrigger } = require('./zohoLeadUpdater');
 
 const CALLED_LEADS_FILE = path.join(__dirname, '../called_leads.json');
 const TRIGGER_FIELD = process.env.ZOHO_FIELD_CALL_TRIGGER || 'Automation';
@@ -12,6 +12,7 @@ const IN_PROGRESS_VALUE = process.env.ZOHO_CALL_IN_PROGRESS_VALUE || 'Call In Pr
 const COMPLETED_VALUE = process.env.ZOHO_CALL_COMPLETED_VALUE || 'Call Completed';
 const FAILED_VALUE = process.env.ZOHO_CALL_FAILED_VALUE || 'Call Failed';
 let pollingTimer = null;
+let pollingStartTime = new Date();
 
 // Helper to read processed leads
 function getProcessedLeads() {
@@ -79,7 +80,6 @@ async function callRetellAI(lead) {
 
         addLog(`Initiating call to ${name} at ${company} (${maskPhone(phone)})...`);
         updateLead(lead.id, { name, phone: maskPhone(phone), status: 'In progress' });
-        await updateLeadStatus(lead.id, IN_PROGRESS_VALUE);
 
         // Check if explicitly configured for Demo Mode
         if (process.env.DEMO_MODE === 'true') {
@@ -150,6 +150,53 @@ async function callRetellAI(lead) {
     }
 }
 
+// Startup reconciliation: uncheck any stale Automation checkboxes in Zoho
+async function reconcilePastLeadsOnStartup(zohoToken) {
+    try {
+        const apiDomain = (process.env.ZOHO_API_DOMAIN || 'https://www.zohoapis.in').trim();
+        const statusField = process.env.ZOHO_FIELD_LEAD_STATUS || 'Lead_Status';
+        const callStatusField = process.env.ZOHO_FIELD_CALL_STATUS || 'Call_Status';
+
+        let page = 1;
+        const pastLeadsToClean = [];
+
+        while (true) {
+            const response = await axios.get(`${apiDomain}/crm/v3/Leads`, {
+                params: {
+                    per_page: 200,
+                    page,
+                    fields: `id,${TRIGGER_FIELD},${statusField},${callStatusField},Modified_Time`
+                },
+                headers: { Authorization: `Zoho-oauthtoken ${zohoToken}` }
+            });
+            const records = response.data?.data || [];
+            for (const record of records) {
+                if (isTriggerChecked(record[TRIGGER_FIELD])) {
+                    pastLeadsToClean.push({ id: record.id, [TRIGGER_FIELD]: false });
+                    markLeadAsProcessed(record.id);
+                }
+            }
+            if (records.length < 200 || !response.data?.info?.more_records) break;
+            page++;
+        }
+
+        if (pastLeadsToClean.length > 0) {
+            addLog(`[Startup] Found ${pastLeadsToClean.length} past leads with ${TRIGGER_FIELD}=true. Unchecking trigger so they are not re-called...`);
+            for (let i = 0; i < pastLeadsToClean.length; i += 100) {
+                const chunk = pastLeadsToClean.slice(i, i + 100);
+                await axios.put(`${apiDomain}/crm/v3/Leads`, { data: chunk }, {
+                    headers: { Authorization: `Zoho-oauthtoken ${zohoToken}` }
+                });
+            }
+            addLog(`[Startup] Cleaned ${pastLeadsToClean.length} past leads successfully.`);
+        } else {
+            addLog(`[Startup] No stale leads with ${TRIGGER_FIELD}=true found.`);
+        }
+    } catch (err) {
+        console.error('Error during startup reconciliation:', err.message);
+    }
+}
+
 // Main polling function
 async function pollRecentLeads() {
     try {
@@ -160,19 +207,26 @@ async function pollRecentLeads() {
 
         const processedLeads = getProcessedLeads();
         const statusField = process.env.ZOHO_FIELD_LEAD_STATUS || 'Lead_Status';
+        const callStatusField = process.env.ZOHO_FIELD_CALL_STATUS || 'Call_Status';
 
         for (const lead of leads) {
             const name = nameForLead(lead);
             const needsCall = isTriggerChecked(lead[TRIGGER_FIELD]);
             const currentLeadStatus = lead[statusField];
-            const isAlreadyHandled = currentLeadStatus === COMPLETED_VALUE || currentLeadStatus === IN_PROGRESS_VALUE;
+            const currentCallStatus = lead[callStatusField];
+
+            const isAlreadyHandled =
+                currentLeadStatus === COMPLETED_VALUE ||
+                currentLeadStatus === IN_PROGRESS_VALUE ||
+                currentLeadStatus === FAILED_VALUE ||
+                Boolean(currentCallStatus);
 
             const baseLead = {
                 name,
                 phone: maskPhone(lead.Phone || lead.Mobile || 'No phone'),
                 needsCall,
                 triggerValue: lead[TRIGGER_FIELD] === true,
-                zohoStatus: currentLeadStatus || lead[TRIGGER_FIELD] || 'Not set'
+                zohoStatus: currentLeadStatus || currentCallStatus || (needsCall ? 'Triggered' : 'Not set')
             };
 
             if (!needsCall) {
@@ -180,20 +234,46 @@ async function pollRecentLeads() {
                 continue;
             }
 
-            if (isAlreadyHandled && !processedLeads.includes(lead.id)) {
-                markLeadAsProcessed(lead.id);
+            // Check if lead was modified BEFORE this polling session started
+            const modifiedTime = lead.Modified_Time ? new Date(lead.Modified_Time).getTime() : 0;
+            const isPastLead = modifiedTime > 0 && modifiedTime < pollingStartTime.getTime();
+
+            if (isPastLead) {
+                // Past data from before restart - do NOT call
+                if (!processedLeads.includes(lead.id)) {
+                    markLeadAsProcessed(lead.id);
+                }
+                // Ensure Automation is turned off in Zoho
+                uncheckTrigger(lead.id).catch(() => {});
+                updateLead(lead.id, { ...baseLead, status: currentLeadStatus || 'Past record (Skipped)' });
+                continue;
             }
 
-            if (!processedLeads.includes(lead.id) && !isAlreadyHandled) {
-                addLog(`Call trigger found for ${name}. Adding to call list.`);
+            if (isAlreadyHandled) {
+                if (!processedLeads.includes(lead.id)) {
+                    markLeadAsProcessed(lead.id);
+                }
+                // If Automation is still true, turn it off in Zoho
+                if (needsCall) {
+                    uncheckTrigger(lead.id).catch(() => {});
+                }
+                updateLead(lead.id, { ...baseLead, status: currentLeadStatus || currentCallStatus || COMPLETED_VALUE });
+                continue;
+            }
+
+            if (!processedLeads.includes(lead.id)) {
+                addLog(`New call trigger detected for ${name}. Adding to call queue.`);
                 updateLead(lead.id, { ...baseLead, status: 'Queued' });
+                markLeadAsProcessed(lead.id);
+                // Consume trigger in Zoho CRM immediately so it cannot be re-triggered
+                await consumeLeadTrigger(lead.id, IN_PROGRESS_VALUE);
                 await callRetellAI(lead);
             } else {
                 updateLead(lead.id, { ...baseLead, status: currentLeadStatus || COMPLETED_VALUE });
             }
         }
     } catch (error) {
-        addLog(`Zoho polling error: ${error.response?.data || error.message}`, 'error');
+        addLog(`Zoho polling error: ${error.response?.data ? JSON.stringify(error.response.data) : error.message}`, 'error');
     }
 }
 
@@ -202,7 +282,16 @@ async function startPolling() {
         return false;
     }
 
-    addLog(`Started polling Zoho CRM. Trigger: ${TRIGGER_FIELD} = ${TRIGGER_VALUE}.`);
+    pollingStartTime = new Date();
+    addLog(`Started polling Zoho CRM. Trigger: ${TRIGGER_FIELD} = ${TRIGGER_VALUE}. Session start: ${pollingStartTime.toLocaleTimeString()}`);
+
+    try {
+        const token = await getAccessToken();
+        await reconcilePastLeadsOnStartup(token);
+    } catch (e) {
+        console.error('Startup reconciliation error:', e.message);
+    }
+
     pollRecentLeads();
     pollingTimer = setInterval(pollRecentLeads, 10 * 1000);
     return true;
@@ -242,7 +331,8 @@ function isTriggerChecked(value) {
 async function fetchAllLeads(zohoToken) {
     const leads = [];
     const statusField = process.env.ZOHO_FIELD_LEAD_STATUS || 'Lead_Status';
-    const fields = `id,First_Name,Last_Name,Company,Phone,Mobile,${TRIGGER_FIELD},${statusField}`;
+    const callStatusField = process.env.ZOHO_FIELD_CALL_STATUS || 'Call_Status';
+    const fields = `id,First_Name,Last_Name,Company,Phone,Mobile,${TRIGGER_FIELD},${statusField},${callStatusField},Created_Time,Modified_Time`;
     let page = 1;
 
     while (true) {

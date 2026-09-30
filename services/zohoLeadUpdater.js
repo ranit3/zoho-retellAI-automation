@@ -16,12 +16,14 @@ function getFieldMap() {
 async function updateLeadAnalysis(leadId, callStatus, analysis, transcript) {
     const token = await getAccessToken();
     const fields = getFieldMap();
+    const triggerField = process.env.ZOHO_FIELD_CALL_TRIGGER || 'Automation';
     const fieldValues = {
         [fields.call_status]: callStatus,
         [fields.interest_level]: analysis.interest_level,
         [fields.outcome]: analysis.outcome,
         [fields.call_summary]: analysis.call_summary,
-        [fields.next_action_date]: analysis.next_action_date
+        [fields.next_action_date]: analysis.next_action_date,
+        [triggerField]: false
     };
     if (fields.objection_reason) fieldValues[fields.objection_reason] = analysis.objection_reason;
     if (fields.call_transcript && transcript) fieldValues[fields.call_transcript] = transcript;
@@ -88,10 +90,38 @@ async function updateLeadStatus(leadId, status) {
     const token = await getAccessToken();
     const apiDomain = (process.env.ZOHO_API_DOMAIN || 'https://www.zohoapis.in').trim();
     const statusField = process.env.ZOHO_FIELD_LEAD_STATUS || 'Lead_Status';
+    const triggerField = process.env.ZOHO_FIELD_CALL_TRIGGER || 'Automation';
+    const callStatusField = process.env.ZOHO_FIELD_CALL_STATUS || 'Call_Status';
+
+    const payload = {
+        [statusField]: status,
+        [triggerField]: false
+    };
+
+    if (status === (process.env.ZOHO_CALL_IN_PROGRESS_VALUE || 'Call In Progress')) {
+        payload[callStatusField] = 'In Progress';
+    }
+
     await axios.put(`${apiDomain}/crm/v3/Leads/${leadId}`, {
-        data: [{
-            [statusField]: status
-        }]
+        data: [payload]
+    }, {
+        headers: {
+            Authorization: `Zoho-oauthtoken ${token}`,
+            'Content-Type': 'application/json'
+        }
+    });
+}
+
+async function consumeLeadTrigger(leadId, newStatus = 'Call In Progress') {
+    return updateLeadStatus(leadId, newStatus);
+}
+
+async function uncheckTrigger(leadId) {
+    const token = await getAccessToken();
+    const apiDomain = (process.env.ZOHO_API_DOMAIN || 'https://www.zohoapis.in').trim();
+    const triggerField = process.env.ZOHO_FIELD_CALL_TRIGGER || 'Automation';
+    await axios.put(`${apiDomain}/crm/v3/Leads/${leadId}`, {
+        data: [{ [triggerField]: false }]
     }, {
         headers: {
             Authorization: `Zoho-oauthtoken ${token}`,
@@ -103,5 +133,7 @@ async function updateLeadStatus(leadId, status) {
 module.exports = {
     updateLeadAnalysis,
     addCallNote,
-    updateLeadStatus
+    updateLeadStatus,
+    consumeLeadTrigger,
+    uncheckTrigger
 };
