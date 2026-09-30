@@ -85,7 +85,7 @@ async function runLiveDemo() {
         }
 
         console.log('\n[6/7] Uploading AI fields to Zoho...');
-        await updateLeadAnalysis(lead.id, 'Connected', analysis);
+        await updateLeadAnalysis(lead.id, 'Connected', analysis, transcript);
         console.log('[7/7] Creating the transcript analysis note in Zoho...');
         await addCallNote(lead.id, transcript, 'Connected', analysis, `DEMO-${Date.now()}`);
 

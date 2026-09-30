@@ -14,7 +14,7 @@ app.use(express.static(path.join(__dirname, 'public')));
 app.use('/api/webhooks/retell', retellRoutes);
 
 app.get('/api/version', (req, res) => {
-  res.json({ version: '1.0.4', features: ['customer_name', 'company_name'] });
+  res.json({ version: '1.0.5', features: ['customer_name', 'company_name', 'call_transcript'] });
 });
 
 app.get('/api/control/status', (req, res) => {

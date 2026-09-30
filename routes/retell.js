@@ -43,7 +43,7 @@ router.post('/', async (req, res) => {
         const analysis = transcript
             ? await analyzeTranscript(transcript, callStatus)
             : createEmptyAnalysis(callStatus);
-        await updateLeadAnalysis(leadId, callStatus, analysis);
+        await updateLeadAnalysis(leadId, callStatus, analysis, transcript);
         await addCallNote(leadId, transcript, callStatus, analysis, call?.call_id || call?.id);
         await updateLeadStatus(leadId, callStatus === 'Connected'
             ? (process.env.ZOHO_CALL_COMPLETED_VALUE || 'Call Completed')
