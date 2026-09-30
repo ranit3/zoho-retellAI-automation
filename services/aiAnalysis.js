@@ -2,7 +2,7 @@ const axios = require('axios');
 
 const ALLOWED_VALUES = {
     interest_level: ['High', 'Medium', 'Low', 'None'],
-    outcome: ['Meeting', 'Email', 'Callback', 'Not Interested', 'Wrong Person']
+    outcome: ['Meeting', 'Email', 'Callback', 'Not Interested', 'Wrong Person', 'Voicemail']
 };
 
 function getModelConfig() {
@@ -25,11 +25,12 @@ Call status from the telephony provider: ${callStatus}
 
 Allowed values:
 - interest_level: High, Medium, Low, or None
-- outcome: Meeting, Email, Callback, Not Interested, or Wrong Person
+- outcome: Meeting, Email, Callback, Not Interested, Wrong Person, or Voicemail
 - objection_reason: Already have agency, No time, or Not priority; otherwise null
 - next_action_date: YYYY-MM-DD or null
 
 Rules:
+- If the call reached an answering machine, voicemail, automated greeting, or asks to leave a message, set outcome to Voicemail and interest_level to None.
 - Use only information supported by the transcript.
 - Use null when information is missing or unclear.
 - summary must contain 2 to 4 sentences.
@@ -74,7 +75,13 @@ function applyBusinessRules(result, callStatus) {
         next_action_date: normalizeDate(result.next_action_date)
     };
 
-    if (normalized.outcome === 'Not Interested') {
+    if (callStatus === 'Voicemail' || normalized.outcome === 'Voicemail') {
+        normalized.outcome = 'Voicemail';
+        normalized.interest_level = 'None';
+        if (!normalized.call_summary) {
+            normalized.call_summary = 'Call reached voicemail or automated answering system.';
+        }
+    } else if (normalized.outcome === 'Not Interested') {
         normalized.interest_level = 'None';
     }
 

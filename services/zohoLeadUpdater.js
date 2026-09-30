@@ -39,19 +39,32 @@ async function updateLeadAnalysis(leadId, callStatus, analysis, transcript) {
             }
         });
     } catch (err) {
-        // If Call_Transcript doesn't exist in Zoho yet, retry without it
-        if (fieldValues[fields.call_transcript]) {
-            delete fieldValues[fields.call_transcript];
+        const retryValues = { ...fieldValues };
+        delete retryValues[fields.call_transcript];
+
+        try {
             await axios.put(`${apiDomain}/crm/v3/Leads/${leadId}`, {
-                data: [fieldValues]
+                data: [retryValues]
             }, {
                 headers: {
                     Authorization: `Zoho-oauthtoken ${token}`,
                     'Content-Type': 'application/json'
                 }
             });
-        } else {
-            throw err;
+        } catch (err2) {
+            if (retryValues[fields.outcome] === 'Voicemail') {
+                delete retryValues[fields.outcome];
+                await axios.put(`${apiDomain}/crm/v3/Leads/${leadId}`, {
+                    data: [retryValues]
+                }, {
+                    headers: {
+                        Authorization: `Zoho-oauthtoken ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+            } else {
+                throw err2;
+            }
         }
     }
 }
