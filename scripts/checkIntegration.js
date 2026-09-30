@@ -18,12 +18,10 @@ function getHeaders(token) {
 function getConfiguredFields() {
     return {
         Call_Status: process.env.ZOHO_FIELD_CALL_STATUS,
-        Lead_Score: process.env.ZOHO_FIELD_LEAD_SCORE,
         Right_Person: process.env.ZOHO_FIELD_RIGHT_PERSON,
         Interest_Level: process.env.ZOHO_FIELD_INTEREST_LEVEL,
         Outcome: process.env.ZOHO_FIELD_OUTCOME,
         Call_Summary: process.env.ZOHO_FIELD_CALL_SUMMARY,
-        Next_Action: process.env.ZOHO_FIELD_NEXT_ACTION,
         Next_Action_Date: process.env.ZOHO_FIELD_NEXT_ACTION_DATE,
         Objection_Reason: process.env.ZOHO_FIELD_OBJECTION_REASON || '(not configured; optional)'
     };
@@ -66,7 +64,6 @@ async function run() {
     console.log('\nGenerated analysis that would be sent to Zoho:');
     console.log(JSON.stringify({
         [configuredFields.Call_Status]: 'Connected',
-        [configuredFields.Lead_Score]: analysis.lead_score,
         [configuredFields.Right_Person]: analysis.right_person,
         [configuredFields.Interest_Level]: analysis.interest_level,
         [configuredFields.Outcome]: analysis.outcome,
@@ -74,7 +71,6 @@ async function run() {
             ? { [process.env.ZOHO_FIELD_OBJECTION_REASON]: analysis.objection_reason }
             : {}),
         [configuredFields.Call_Summary]: analysis.call_summary,
-        [configuredFields.Next_Action]: analysis.next_action,
         [configuredFields.Next_Action_Date]: analysis.next_action_date
     }, null, 2));
     console.log('\nIntegration check complete. Zoho was not modified.');
